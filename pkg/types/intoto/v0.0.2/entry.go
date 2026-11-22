@@ -42,6 +42,7 @@ import (
 	"github.com/sigstore/rekor/pkg/pki/x509"
 	"github.com/sigstore/rekor/pkg/types"
 	"github.com/sigstore/rekor/pkg/types/intoto"
+	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/options"
 )
@@ -97,14 +98,13 @@ func (v V002Entry) IndexKeys() ([]string, error) {
 			return result, fmt.Errorf("could not canonicize key: %w", err)
 		}
 
-		keyHash := sha256.Sum256(canonKey)
-		result = append(result, "sha256:"+hex.EncodeToString(keyHash[:]))
+		result = append(result, util.PublicKeyIndexKey(canonKey))
 
 		result = append(result, keyObj.Subjects()...)
 	}
 
 	if v.IntotoObj.Content.PayloadHash != nil && v.IntotoObj.Content.PayloadHash.Algorithm != nil && v.IntotoObj.Content.PayloadHash.Value != nil {
-		payloadKey := strings.ToLower(fmt.Sprintf("%s:%s", *v.IntotoObj.Content.PayloadHash.Algorithm, *v.IntotoObj.Content.PayloadHash.Value))
+		payloadKey := util.ArtifactHashIndexKey(*v.IntotoObj.Content.PayloadHash.Algorithm, *v.IntotoObj.Content.PayloadHash.Value)
 		result = append(result, payloadKey)
 	}
 
@@ -131,7 +131,7 @@ func (v V002Entry) IndexKeys() ([]string, error) {
 			}
 			for _, s := range statement.Subject {
 				for alg, ds := range s.Digest {
-					result = append(result, alg+":"+ds)
+					result = append(result, util.ArtifactHashIndexKey(alg, ds))
 				}
 			}
 			// Not all in-toto statements will contain a SLSA provenance predicate.
@@ -141,7 +141,7 @@ func (v V002Entry) IndexKeys() ([]string, error) {
 				if predicate.Predicate.Materials != nil {
 					for _, s := range predicate.Predicate.Materials {
 						for alg, ds := range s.Digest {
-							result = append(result, alg+":"+ds)
+							result = append(result, util.ArtifactHashIndexKey(alg, ds))
 						}
 					}
 				}

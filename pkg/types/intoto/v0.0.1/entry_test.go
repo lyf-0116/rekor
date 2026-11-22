@@ -48,6 +48,7 @@ import (
 	"github.com/sigstore/rekor/pkg/generated/models"
 	pkix509 "github.com/sigstore/rekor/pkg/pki/x509"
 	"github.com/sigstore/rekor/pkg/types"
+	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/signature"
 	dsse_signer "github.com/sigstore/sigstore/pkg/signature/dsse"
 	"go.uber.org/goleak"
@@ -291,8 +292,7 @@ func TestV001Entry_Unmarshal(t *testing.T) {
 
 				keysWanted := tt.additionalIndexKeys
 				if tt.it.PublicKey != nil {
-					h := sha256.Sum256(*tt.it.PublicKey)
-					keysWanted = append(keysWanted, fmt.Sprintf("sha256:%s", hex.EncodeToString(h[:])))
+					keysWanted = append(keysWanted, util.PublicKeyIndexKey(*tt.it.PublicKey))
 				}
 				payloadBytes, _ := v.env.DecodeB64Payload()
 				payloadSha := sha256.Sum256(payloadBytes)

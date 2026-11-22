@@ -45,6 +45,7 @@ import (
 	"github.com/secure-systems-lab/go-securesystemslib/dsse"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
+	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"go.uber.org/goleak"
 )
@@ -324,8 +325,7 @@ func TestV002Entry_Unmarshal(t *testing.T) {
 
 				want := []string{}
 				for _, sig := range v.IntotoObj.Content.Envelope.Signatures {
-					keyHash := sha256.Sum256(*sig.PublicKey)
-					want = append(want, "sha256:"+hex.EncodeToString(keyHash[:]))
+					want = append(want, util.PublicKeyIndexKey(*sig.PublicKey))
 				}
 				decodedPayload, err := base64.StdEncoding.DecodeString(tt.env.Payload)
 				if err != nil {
@@ -530,8 +530,7 @@ func TestV002Entry_IndexKeys(t *testing.T) {
 			}
 			want := []string{}
 			for _, sig := range v.IntotoObj.Content.Envelope.Signatures {
-				keyHash := sha256.Sum256(*sig.PublicKey)
-				want = append(want, "sha256:"+hex.EncodeToString(keyHash[:]))
+				want = append(want, util.PublicKeyIndexKey(*sig.PublicKey))
 			}
 
 			want = append(want, "sha256:"+hex.EncodeToString(payloadHash[:]))

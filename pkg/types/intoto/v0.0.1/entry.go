@@ -41,6 +41,7 @@ import (
 	"github.com/sigstore/rekor/pkg/pki/x509"
 	"github.com/sigstore/rekor/pkg/types"
 	"github.com/sigstore/rekor/pkg/types/intoto"
+	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/signature"
 	dsse_verifier "github.com/sigstore/sigstore/pkg/signature/dsse"
 )
@@ -80,7 +81,7 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 
 	// add digest over entire DSSE envelope
 	if v.IntotoObj.Content != nil && v.IntotoObj.Content.Hash != nil {
-		hashkey := strings.ToLower(fmt.Sprintf("%s:%s", conv.Value(v.IntotoObj.Content.Hash.Algorithm), conv.Value(v.IntotoObj.Content.Hash.Value)))
+		hashkey := util.ArtifactHashIndexKey(conv.Value(v.IntotoObj.Content.Hash.Algorithm), conv.Value(v.IntotoObj.Content.Hash.Value))
 		result = append(result, hashkey)
 	} else {
 		log.Logger.Error("could not find content digest to include in index keys")
@@ -90,8 +91,7 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 	if v.keyObj != nil {
 		key, err := v.keyObj.CanonicalValue()
 		if err == nil {
-			keyHash := sha256.Sum256(key)
-			result = append(result, fmt.Sprintf("sha256:%s", strings.ToLower(hex.EncodeToString(keyHash[:]))))
+			result = append(result, util.PublicKeyIndexKey(key))
 
 			// add digest over any subjects within signing certificate
 			result = append(result, v.keyObj.Subjects()...)
@@ -104,7 +104,7 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 
 	// add digest base64-decoded payload inside of DSSE envelope
 	if v.IntotoObj.Content != nil && v.IntotoObj.Content.PayloadHash != nil {
-		payloadHash := strings.ToLower(fmt.Sprintf("%s:%s", conv.Value(v.IntotoObj.Content.PayloadHash.Algorithm), conv.Value(v.IntotoObj.Content.PayloadHash.Value)))
+		payloadHash := util.ArtifactHashIndexKey(conv.Value(v.IntotoObj.Content.PayloadHash.Algorithm), conv.Value(v.IntotoObj.Content.PayloadHash.Value))
 		result = append(result, payloadHash)
 	} else {
 		log.Logger.Error("could not find payload digest to include in index keys")
@@ -119,7 +119,7 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 		}
 		for _, s := range statement.Subject {
 			for alg, ds := range s.Digest {
-				result = append(result, alg+":"+ds)
+				result = append(result, util.ArtifactHashIndexKey(alg, ds))
 			}
 		}
 		// Not all in-toto statements will contain a SLSA provenance predicate.
@@ -129,7 +129,7 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 			if predicate.Predicate.Materials != nil {
 				for _, s := range predicate.Predicate.Materials {
 					for alg, ds := range s.Digest {
-						result = append(result, alg+":"+ds)
+						result = append(result, util.ArtifactHashIndexKey(alg, ds))
 					}
 				}
 			}

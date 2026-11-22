@@ -1106,6 +1106,30 @@ func TestNormalizeKey(t *testing.T) {
 	}
 }
 
+func TestLookupIndicesNormalizesKeys(t *testing.T) {
+	db, mock := newMockDB(t, sqlmock.QueryMatcherRegexp)
+	isp := IndexStorageProvider{readDB: db}
+	defer isp.Shutdown()
+
+	// lookup keys must be normalized to the stored form, just like WriteIndex
+	mock.ExpectQuery(lookupStmt).WithArgs("user@example.com").
+		WillReturnRows(sqlmock.NewRows([]string{"EntryUUID"}).AddRow("uuid"))
+	if _, err := isp.LookupIndices(context.Background(), []string{"User@Example.COM"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
+	}
+
+	// an unstorable key can never match a row, so it is dropped from the query
+	if got, err := isp.LookupIndices(context.Background(), []string{"prefix\xff"}); err != nil || len(got) != 0 {
+		t.Fatalf("got (%v, %v), want empty result", got, err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
+	}
+}
+
 func TestWriteIndexDeduplicatesCaseVariants(t *testing.T) {
 	db, mock := newMockDB(t, sqlmock.QueryMatcherEqual)
 	p := IndexStorageProvider{writeDB: db, batchDelay: time.Hour}

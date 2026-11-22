@@ -103,7 +103,7 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 	}
 
 	metadataHash := sha256.Sum256(metadata)
-	result = append(result, strings.ToLower(hex.EncodeToString(metadataHash[:])))
+	result = append(result, util.ArtifactHashIndexKey("sha256", hex.EncodeToString(metadataHash[:])))
 
 	result = append(result, sig.Role)
 	result = append(result, strconv.Itoa(sig.Version))
@@ -114,7 +114,7 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 		log.Logger.Error(err)
 	} else {
 		rootHash := sha256.Sum256(root)
-		result = append(result, strings.ToLower(hex.EncodeToString(rootHash[:])))
+		result = append(result, util.ArtifactHashIndexKey("sha256", hex.EncodeToString(rootHash[:])))
 	}
 
 	// TODO: Index individual key IDs

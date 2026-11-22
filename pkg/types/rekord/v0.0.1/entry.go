@@ -95,14 +95,13 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 	if err != nil {
 		log.Logger.Error(err)
 	} else {
-		keyHash := sha256.Sum256(key)
-		result = append(result, strings.ToLower(hex.EncodeToString(keyHash[:])))
+		result = append(result, util.PublicKeyIndexKey(key))
 	}
 
 	result = append(result, keyObj.Subjects()...)
 
 	if v.RekordObj.Data.Hash != nil {
-		hashKey := strings.ToLower(fmt.Sprintf("%s:%s", *v.RekordObj.Data.Hash.Algorithm, *v.RekordObj.Data.Hash.Value))
+		hashKey := util.ArtifactHashIndexKey(*v.RekordObj.Data.Hash.Algorithm, *v.RekordObj.Data.Hash.Value)
 		result = append(result, hashKey)
 	}
 

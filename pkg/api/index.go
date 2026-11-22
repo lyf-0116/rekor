@@ -18,8 +18,6 @@ package api
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -50,12 +48,14 @@ func SearchIndexHandler(params index.SearchIndexParams) middleware.Responder {
 	var lookupKeys []string
 
 	if params.Query.Hash != "" {
-		// This must be a valid hash
-		sha := strings.ToLower(util.PrefixSHA(params.Query.Hash))
+		// Look up both the canonical algorithm-prefixed form and the
+		// historical bare-hex form, since entries already indexed under the
+		// bare form cannot be rewritten.
+		hashKeys := util.ArtifactHashIndexKeys(params.Query.Hash)
 		if queryOperator == "or" {
-			lookupKeys = append(lookupKeys, sha)
+			lookupKeys = append(lookupKeys, hashKeys...)
 		} else {
-			resultUUIDs, err := indexStorageClient.LookupIndices(httpReqCtx, []string{sha})
+			resultUUIDs, err := indexStorageClient.LookupIndices(httpReqCtx, hashKeys)
 			if err != nil {
 				return handleRekorAPIError(params, http.StatusInternalServerError, fmt.Errorf("index storage error: %w", err), indexStorageUnexpectedResult)
 			}
@@ -78,12 +78,13 @@ func SearchIndexHandler(params index.SearchIndexParams) middleware.Responder {
 			return handleRekorAPIError(params, http.StatusInternalServerError, err, failedToGenerateCanonicalKey)
 		}
 
-		keyHash := sha256.Sum256(canonicalKey)
-		keyHashStr := strings.ToLower(hex.EncodeToString(keyHash[:]))
+		// Look up the canonical publickey-namespaced form plus every
+		// historical form entries may have been indexed under.
+		keyForms := util.PublicKeyIndexKeys(canonicalKey, params.Query.PublicKey.Content)
 		if queryOperator == "or" {
-			lookupKeys = append(lookupKeys, keyHashStr)
+			lookupKeys = append(lookupKeys, keyForms...)
 		} else {
-			resultUUIDs, err := indexStorageClient.LookupIndices(httpReqCtx, []string{keyHashStr})
+			resultUUIDs, err := indexStorageClient.LookupIndices(httpReqCtx, keyForms)
 			if err != nil {
 				return handleRekorAPIError(params, http.StatusInternalServerError, fmt.Errorf("index storage error: %w", err), indexStorageUnexpectedResult)
 			}

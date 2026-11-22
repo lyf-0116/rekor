@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -75,18 +74,21 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 	}
 
 	key := v.HashedRekordObj.Signature.PublicKey.Content
-	keyHash := sha256.Sum256(key)
-	result = append(result, strings.ToLower(hex.EncodeToString(keyHash[:])))
-
 	pub, err := x509.NewPublicKey(bytes.NewReader(key))
 	if err != nil {
 		return nil, err
 	}
+	canonicalKey, err := pub.CanonicalValue()
+	if err != nil {
+		return nil, err
+	}
+	result = append(result, util.PublicKeyIndexKey(canonicalKey))
+
 	result = append(result, pub.Subjects()...)
 
 	if v.HashedRekordObj.Data != nil && v.HashedRekordObj.Data.Hash != nil &&
 		v.HashedRekordObj.Data.Hash.Algorithm != nil && v.HashedRekordObj.Data.Hash.Value != nil {
-		hashKey := strings.ToLower(fmt.Sprintf("%s:%s", *v.HashedRekordObj.Data.Hash.Algorithm, *v.HashedRekordObj.Data.Hash.Value))
+		hashKey := util.ArtifactHashIndexKey(*v.HashedRekordObj.Data.Hash.Algorithm, *v.HashedRekordObj.Data.Hash.Value)
 		result = append(result, hashKey)
 	}
 

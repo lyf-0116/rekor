@@ -40,6 +40,7 @@ import (
 	"github.com/sigstore/rekor/pkg/generated/models"
 	x509r "github.com/sigstore/rekor/pkg/pki/x509"
 	"github.com/sigstore/rekor/pkg/types"
+	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/options"
@@ -497,11 +498,6 @@ func TestCrossFieldValidation(t *testing.T) {
 	}
 }
 
-func hexHash(b []byte) string {
-	h := sha256.Sum256([]byte(b))
-	return hex.EncodeToString(h[:])
-}
-
 func TestV001Entry_IndexKeys(t *testing.T) {
 	pub, cert, priv := testKeyAndCert(t)
 
@@ -548,7 +544,7 @@ func TestV001Entry_IndexKeys(t *testing.T) {
 		if _, ok := keys[hashIndexKey]; !ok {
 			t.Errorf("missing hash index entry %s, got %v", hashIndexKey, keys)
 		}
-		want := hexHash(pub)
+		want := util.PublicKeyIndexKey(pub)
 		if _, ok := keys[want]; !ok {
 			t.Errorf("missing key index entry %s, got %v", want, keys)
 		}
@@ -570,8 +566,29 @@ func TestV001Entry_IndexKeys(t *testing.T) {
 		if _, ok := keys[hashIndexKey]; !ok {
 			t.Errorf("missing hash index entry for public key test, got %v", keys)
 		}
-		if _, ok := keys[hexHash(cert)]; !ok {
+		if _, ok := keys[util.PublicKeyIndexKey(cert)]; !ok {
 			t.Errorf("missing key index entry for public key test, got %v", keys)
+		}
+	})
+
+	// The same key must land on the same index key regardless of PEM framing;
+	// historical entries hashed the raw uploaded bytes, so reframing the PEM
+	// (extra headers, trailing newlines) used to change the index key.
+	t.Run("pem framing does not change key", func(t *testing.T) {
+		reframed := append([]byte("Bag Attributes: ignored\n\n"), pub...)
+		reframed = append(reframed, '\n')
+		v.HashedRekordObj.Signature.PublicKey.Content = strfmt.Base64(reframed)
+
+		k, err := v.IndexKeys()
+		if err != nil {
+			t.Fatal(err)
+		}
+		keys := map[string]struct{}{}
+		for _, key := range k {
+			keys[key] = struct{}{}
+		}
+		if _, ok := keys[util.PublicKeyIndexKey(pub)]; !ok {
+			t.Errorf("reframed PEM produced a different key index entry, got %v", keys)
 		}
 	})
 

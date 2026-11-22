@@ -40,6 +40,7 @@ import (
 	"github.com/sigstore/rekor/pkg/pki/x509"
 	"github.com/sigstore/rekor/pkg/types"
 	dsseType "github.com/sigstore/rekor/pkg/types/dsse"
+	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/signature"
 	sigdsse "github.com/sigstore/sigstore/pkg/signature/dsse"
 )
@@ -107,19 +108,18 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 			return result, fmt.Errorf("could not canonicalize key: %w", err)
 		}
 
-		keyHash := sha256.Sum256(canonKey)
-		result = append(result, "sha256:"+hex.EncodeToString(keyHash[:]))
+		result = append(result, util.PublicKeyIndexKey(canonKey))
 
 		result = append(result, keyObj.Subjects()...)
 	}
 
 	if v.DSSEObj.PayloadHash != nil && v.DSSEObj.PayloadHash.Algorithm != nil && v.DSSEObj.PayloadHash.Value != nil {
-		payloadHashKey := strings.ToLower(fmt.Sprintf("%s:%s", *v.DSSEObj.PayloadHash.Algorithm, *v.DSSEObj.PayloadHash.Value))
+		payloadHashKey := util.ArtifactHashIndexKey(*v.DSSEObj.PayloadHash.Algorithm, *v.DSSEObj.PayloadHash.Value)
 		result = append(result, payloadHashKey)
 	}
 
 	if v.DSSEObj.EnvelopeHash != nil && v.DSSEObj.EnvelopeHash.Algorithm != nil && v.DSSEObj.EnvelopeHash.Value != nil {
-		envelopeHashKey := strings.ToLower(fmt.Sprintf("%s:%s", *v.DSSEObj.EnvelopeHash.Algorithm, *v.DSSEObj.EnvelopeHash.Value))
+		envelopeHashKey := util.ArtifactHashIndexKey(*v.DSSEObj.EnvelopeHash.Algorithm, *v.DSSEObj.EnvelopeHash.Value)
 		result = append(result, envelopeHashKey)
 	}
 

@@ -42,6 +42,7 @@ import (
 	"github.com/sigstore/rekor/pkg/pki/x509"
 	"github.com/sigstore/rekor/pkg/types"
 	"github.com/sigstore/rekor/pkg/types/cose"
+	"github.com/sigstore/rekor/pkg/util"
 )
 
 const (
@@ -96,8 +97,7 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 	if err != nil {
 		log.Logger.Error(err)
 	} else {
-		keyHash := sha256.Sum256(key)
-		result = append(result, strings.ToLower(hex.EncodeToString(keyHash[:])))
+		result = append(result, util.PublicKeyIndexKey(key))
 	}
 	result = append(result, keyObj.Subjects()...)
 
@@ -130,7 +130,7 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 			} else {
 				for _, sub := range stmt.Subject {
 					for alg, digest := range sub.Digest {
-						index := alg + ":" + digest
+						index := util.ArtifactHashIndexKey(alg, digest)
 						result = append(result, index)
 					}
 				}
@@ -162,7 +162,7 @@ func getIntotoStatement(b []byte) (*indexKeyExtract, error) {
 func formatKey(b []byte) string {
 	h := sha256.Sum256(b)
 	hash := hex.EncodeToString(h[:])
-	return strings.ToLower(fmt.Sprintf("%s:%s", models.CoseV001SchemaDataPayloadHashAlgorithmSha256, hash))
+	return util.ArtifactHashIndexKey(models.CoseV001SchemaDataPayloadHashAlgorithmSha256, hash)
 }
 
 func (v *V001Entry) Unmarshal(pe models.ProposedEntry) error {

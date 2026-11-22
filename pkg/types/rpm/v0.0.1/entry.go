@@ -80,14 +80,13 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	keyHash := sha256.Sum256(key)
-	result = append(result, strings.ToLower(hex.EncodeToString(keyHash[:])))
+	result = append(result, util.PublicKeyIndexKey(key))
 
 	result = append(result, keyObj.Subjects()...)
 
 	if v.RPMModel.Package != nil && v.RPMModel.Package.Hash != nil {
 		if v.RPMModel.Package.Hash.Algorithm != nil && v.RPMModel.Package.Hash.Value != nil {
-			hashKey := strings.ToLower(fmt.Sprintf("%s:%s", *v.RPMModel.Package.Hash.Algorithm, *v.RPMModel.Package.Hash.Value))
+			hashKey := util.ArtifactHashIndexKey(*v.RPMModel.Package.Hash.Algorithm, *v.RPMModel.Package.Hash.Value)
 			result = append(result, hashKey)
 		}
 	}

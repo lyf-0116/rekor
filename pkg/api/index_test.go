@@ -17,6 +17,11 @@ package api
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -35,6 +40,7 @@ import (
 	"github.com/sigstore/rekor/pkg/indexstorage/mysql"
 	"github.com/sigstore/rekor/pkg/log"
 	"github.com/sigstore/rekor/pkg/types"
+	"github.com/sigstore/rekor/pkg/util"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/api/support/bundler"
@@ -293,6 +299,65 @@ func TestSearchIndexHandler_SubjectAndShaOrOperator(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("OR union: want %v, got %v", want, got)
 		}
+	}
+}
+
+func TestSearchIndexHandler_HashDualForm(t *testing.T) {
+	const bare = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	fake := &fakeIndexStorage{keyToUUIDs: map[string][]string{
+		// historical entries were indexed under the bare hex form
+		bare: {"legacy"},
+		// current entries are indexed under the algorithm-prefixed form
+		"sha256:" + bare: {"current"},
+	}}
+	swapIndexStorage(t, fake)
+
+	resp := SearchIndexHandler(newSearchParams(t, models.SearchIndex{Hash: bare}))
+
+	got := okPayload(t, resp)
+	want := []string{"current", "legacy"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("payload: want %v, got %v", want, got)
+	}
+	if len(fake.lookups) != 1 || !cmp.Equal(fake.lookups[0], util.ArtifactHashIndexKeys(bare)) {
+		t.Fatalf("expected dual-form lookup %v; got %v", util.ArtifactHashIndexKeys(bare), fake.lookups)
+	}
+}
+
+func TestSearchIndexHandler_PublicKeyDualForm(t *testing.T) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der})
+
+	wantForms := util.PublicKeyIndexKeys(pub, pub)
+	fake := &fakeIndexStorage{keyToUUIDs: map[string][]string{
+		// historical entries were indexed under the bare hex digest of the key
+		wantForms[1]: {"legacy"},
+		// current entries are indexed under the publickey-namespaced form
+		wantForms[0]: {"current"},
+	}}
+	swapIndexStorage(t, fake)
+
+	resp := SearchIndexHandler(newSearchParams(t, models.SearchIndex{
+		PublicKey: &models.SearchIndexPublicKey{
+			Format:  new("x509"),
+			Content: pub,
+		},
+	}))
+
+	got := okPayload(t, resp)
+	want := []string{"current", "legacy"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("payload: want %v, got %v", want, got)
+	}
+	if len(fake.lookups) != 1 || !cmp.Equal(fake.lookups[0], wantForms) {
+		t.Fatalf("expected dual-form lookup %v; got %v", wantForms, fake.lookups)
 	}
 }
 

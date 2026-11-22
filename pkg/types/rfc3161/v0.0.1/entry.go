@@ -36,6 +36,7 @@ import (
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/log"
 	"github.com/sigstore/rekor/pkg/types"
+	"github.com/sigstore/rekor/pkg/util"
 )
 
 const (
@@ -92,8 +93,7 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 	h := sha256.Sum256(tb)
 	hx := hex.EncodeToString(h[:])
 
-	payloadKey := "sha256:" + hx
-	result = append(result, payloadKey)
+	result = append(result, util.ArtifactHashIndexKey("sha256", hx))
 
 	return result, nil
 }

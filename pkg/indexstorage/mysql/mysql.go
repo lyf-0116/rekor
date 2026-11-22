@@ -382,7 +382,22 @@ func (isp *IndexStorageProvider) LookupIndices(ctx context.Context, keys []strin
 		return []string{}, errors.New("sql client has not been initialized")
 	}
 
-	query, args, err := sqlx.In(lookupStmt, keys)
+	// Normalize lookup keys the same way WriteIndex normalizes stored keys, so
+	// reads and writes agree on the stored form. A key that cannot be stored
+	// can never match a row, so it is dropped rather than failing the lookup.
+	normalized := make([]string, 0, len(keys))
+	for _, key := range keys {
+		key, err := NormalizeKey(key)
+		if err != nil {
+			continue
+		}
+		normalized = append(normalized, key)
+	}
+	if len(normalized) == 0 {
+		return []string{}, nil
+	}
+
+	query, args, err := sqlx.In(lookupStmt, normalized)
 	if err != nil {
 		return []string{}, fmt.Errorf("error preparing statement: %w", err)
 	}

@@ -404,6 +404,9 @@ func unmarshalEntryImpl(e string) (types.EntryImpl, string, string, error) {
 }
 
 func (c *redisClient) idempotentAddToIndex(ctx context.Context, key, value string) error {
+	// canonicalize the way the server's Redis backend does, so backfilled
+	// keys land on the same form the search API looks up
+	key = strings.ToLower(key)
 	if *dryRun {
 		return nil
 	}

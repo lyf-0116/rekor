@@ -82,8 +82,7 @@ func (v *V001Entry) IndexKeys() ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		keyHash := sha256.Sum256(key)
-		result = append(result, strings.ToLower(hex.EncodeToString(keyHash[:])))
+		result = append(result, util.PublicKeyIndexKey(key))
 	}
 
 	if v.JARModel.Archive != nil && v.JARModel.Archive.Hash != nil {
@@ -96,7 +95,7 @@ func (v *V001Entry) IndexKeys() ([]string, error) {
 			val = *v.JARModel.Archive.Hash.Value
 		}
 		if alg != "" && val != "" {
-			hashKey := strings.ToLower(fmt.Sprintf("%s:%s", alg, val))
+			hashKey := util.ArtifactHashIndexKey(alg, val)
 			result = append(result, hashKey)
 		}
 	}

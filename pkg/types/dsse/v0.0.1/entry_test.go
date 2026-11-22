@@ -46,6 +46,7 @@ import (
 	"github.com/secure-systems-lab/go-securesystemslib/dsse"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/types"
+	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/sigstore/pkg/signature"
 	sigdsse "github.com/sigstore/sigstore/pkg/signature/dsse"
 	"go.uber.org/goleak"
@@ -348,8 +349,7 @@ func TestV001Entry_Unmarshal(t *testing.T) {
 				}
 				want := []string{}
 				for _, sig := range v.DSSEObj.Signatures {
-					keyHash := sha256.Sum256(*sig.Verifier)
-					want = append(want, "sha256:"+hex.EncodeToString(keyHash[:]))
+					want = append(want, util.PublicKeyIndexKey(*sig.Verifier))
 				}
 				decodedPayload, err := base64.StdEncoding.DecodeString(tt.env.Payload)
 				if err != nil {
@@ -528,8 +528,7 @@ func TestV001Entry_IndexKeys(t *testing.T) {
 			}
 			want := []string{}
 			for _, sig := range v.DSSEObj.Signatures {
-				keyHash := sha256.Sum256(*sig.Verifier)
-				want = append(want, "sha256:"+hex.EncodeToString(keyHash[:]))
+				want = append(want, util.PublicKeyIndexKey(*sig.Verifier))
 			}
 			spec := pe.Spec.(*models.DSSEV001Schema)
 			env := &dsse.Envelope{}
